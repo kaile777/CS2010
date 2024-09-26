@@ -1,4 +1,3 @@
-
 // represents dollar amount used for payment in pennies
 int given = 100;
 

@@ -11,9 +11,10 @@ int main() {
     VEC v = &a;
     MATRIX m = &v;
 
+    cout << endl;
     cout << "Display a using v: " << *v << endl;
     cout << "Display a using m: " << **m << endl;
 
     return 0;
-    
+
 }

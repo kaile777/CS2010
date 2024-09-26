@@ -3,7 +3,6 @@
 using namespace std;
 
 extern const int given; 
-extern int cost, change;
 extern int quarters, dimes, nickels, pennies,
     cost, change;
 
@@ -14,15 +13,12 @@ int main() {
     cin >> cost;
     cout << endl;
 
-    // Prints formatted total cost of item to console
-    cout << "COST: $";
-    (cost != 100) ? (cout << "0." << cost) : (cout << "1.00");
-    cout << endl;
-
     change = given - cost;
 
     // Prints formatted change to give
-    cout << "\nCHANGE: $0." << change << endl << endl;  
+    cout << "\nCHANGE: $";
+    (cost == 0) ? cout << "1.00" : cout << "0." << change;
+    cout << endl << endl;
 
     /*
     Loop ensures that the least amount of total coins are used
