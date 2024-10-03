@@ -16,6 +16,17 @@ int die() {
     return die;    
 }
 
+// prints summary of both die rolls
+// also returns the sum of the two rolls
+// func is always assigned to int sum in playGame().
+int dieRollSum(int die1, int die2) {
+    cout << "DIE 1: " << die1 << endl;
+    cout << "DIE 2: " << die2 << endl;
+    int sum = die1 + die2;
+    cout << die1 << " + " << die2 << " = " << sum << endl << endl;
+    return sum;
+}
+
 // output win or lose message based off win or loss
 // updates bank_roll with appropriate addition or subtraction of bet
 void checkWin(bool win, int& bank_roll, int bet) {
@@ -53,14 +64,11 @@ void playGame(int& bank_roll) {
         }
     }
 
+    // roll both dice, and get sum of roll
     int die1 = die();
     int die2 = die();
-    int sum = die1 + die2;
-    int point;
-
-    cout << "DIE 1: " << die1 << endl;
-    cout << "DIE 2: " << die2 << endl;
-    cout << die1 << " + " << die2 << " = " << sum << endl << endl;
+    int point, sum;
+    sum = dieRollSum(die1, die2);
 
     // check for win
     if (sum == 7 || sum == 11) 
@@ -75,13 +83,7 @@ void playGame(int& bank_roll) {
         while (true) {
             die1 = die();
             die2 = die();
-
-            cout << "DIE 1: " << die1 << endl;
-            cout << "DIE 2: " << die2 << endl;
-
-            sum = die1 + die2;
-            cout << die1 << " + " << die2 << " = " << sum << endl << endl;
-
+            sum = dieRollSum(die1, die2);
             if (sum == 7) {
                 win = false;
                 break;
