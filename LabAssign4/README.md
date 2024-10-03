@@ -30,3 +30,6 @@ end and the program will terminate.
 At any point throughout the game, you may decide to discontinue playing. When you press "n" or "N" to
 quit, the program will terminate and your progress will be lost. The next time the program launches,
 the bankroll will be reset.
+
+LIMITATIONS:
+If player decides to quit the game at any point, their current progress will be lost.
