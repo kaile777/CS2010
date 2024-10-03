@@ -13,7 +13,6 @@ void checkWin(bool win, int& back_roll, int bet);
 int die() {
     int die, min = 1, max = 6;
     die = min + (rand() % (max - min + 1));
-
     return die;    
 }
 
@@ -37,7 +36,6 @@ void checkWin(bool win, int& bank_roll, int bet) {
 }
 
 void playGame(int& bank_roll) {
-
     int bet = 1; 
     bool win;
 
@@ -50,9 +48,8 @@ void playGame(int& bank_roll) {
             cout << endl;
             if (bet <= bank_roll)
                 break;
-            else {
+            else
                 cout << "You can't bet more than your bank roll" << endl;
-            }
         }
     }
 
@@ -61,13 +58,20 @@ void playGame(int& bank_roll) {
     int sum = die1 + die2;
     int point;
 
+    cout << "DIE 1: " << die1 << endl;
+    cout << "DIE 2: " << die2 << endl;
+    cout << die1 << " + " << die2 << " = " << sum << endl << endl;
+
     // check for win
     if (sum == 7 || sum == 11) 
         win = true;
-    else if (sum == 2 || sum == 3 || sum == 12)
+        
+    else if (sum == 2 || sum == 3 || sum == 12) 
         win = false;
+
     else {
         point = sum;
+        cout << "Your point is: " << point << endl << endl;
         while (true) {
             die1 = die();
             die2 = die();
@@ -76,6 +80,7 @@ void playGame(int& bank_roll) {
             cout << "DIE 2: " << die2 << endl;
 
             sum = die1 + die2;
+            cout << die1 << " + " << die2 << " = " << sum << endl << endl;
 
             if (sum == 7) {
                 win = false;
@@ -87,26 +92,23 @@ void playGame(int& bank_roll) {
             }
         }
     }
-
     checkWin(win, bank_roll, bet);
-
 }
 
 int main() {
-
+    srand(time(0));
     char ans;
     bool done = false;
-    int bank_roll = 100;
+    const int max_creds = 100;
+    int bank_roll = max_creds;
 
     cout << endl << "CRAPS DICE GAME" << endl;
     cout << "Bank Roll: $" << bank_roll << endl;
 
     while ( ! done ) {
-
         playGame(bank_roll);
-
         if (bank_roll > 0) {
-            cout << "Play Again (Y/N)? ";
+            cout << endl << "Play Again (Y/N)? ";
             cin >> ans; 
             cout << endl;
             ans = toupper(ans);
@@ -117,8 +119,6 @@ int main() {
             cout << "You ran out of credits" << endl;
             break;
         }
-            
     }
-
     return 0;
 }
