@@ -17,7 +17,7 @@ I used GNU G++.
     "g++ -o main main.cpp" or "g++ main.cpp" and launch the exe file that shows.
 
 HOW-TO:
-When you compile the program, find the executable and launch it by taping the exe files name.
+When you compile the program, find the executable and launch it by typing the exe files name.
 Once opened. The program will diplay the name of the game, with your bankroll underneath. 
 The bank roll should be set to $100.
 You will then be prompted to enter a bet. This bet must be less than or equal to your bankroll.
