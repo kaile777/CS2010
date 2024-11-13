@@ -56,6 +56,7 @@ bool compare(alloc a, alloc b) {
 
 
 
+
 int main() {
 
     
@@ -72,7 +73,7 @@ int main() {
     allocList.insertSort(a2, fa);
 
 
-    
+
     allocList.printList();
 
 
