@@ -11,10 +11,14 @@ using namespace std;
 template <typename T>
 using comp_f = bool (*)(T, T);
 
-// first int is the starting location, second int is the size
+// first int is the starting location, second int is the len
 using range = pair<int, int>;
 // first int represents the time lease
 using alloc = pair<int, range>;
+
+
+
+
 template <typename T>
 T viewAt(int index);
 template <typename T>
@@ -26,14 +30,17 @@ void printElement(alloc a);
 void printElement(range r);
 bool compare(int a, int b);
 void printElement(range element);
-
-
+int len();
+void updateMemorylen(int index, int addMemory);
+void removeNode(int index);
+int size();
+void mergeFreeList(List<range> &list, int reqSize)
 
 
 template <typename T>
 class List {
 
-    int size = 0;
+    int len = 0;
 
     class Node {
     
@@ -64,6 +71,10 @@ public:
         tail = nullptr;
     }
 
+    int size() {
+        return len;
+    }
+
     void insertSort(T element, comp_f<T> f) {
 
         Node* n = new Node(element);
@@ -71,14 +82,14 @@ public:
 
         if (head == nullptr) {
             head = tail = n;
-            size++;
+            len++;
             return;                                  // TERMINATING RETURN
         }
 
         if (f(n->value, current->value)) {
             n->next = current;
             head = n;
-            size++;
+            len++;
             return;
         }
         
@@ -93,13 +104,13 @@ public:
                     current->next = n;
                     n->next = tmp;
                 }
-                size++;
+                len++;
                 return;                             // TERMINATING RETURN
             }
             if (current == tail) {
                 current->next = n;
                 tail = n;
-                size++;
+                len++;
                 return;
             }
             current = current->next;
@@ -126,7 +137,7 @@ public:
 
     T viewAt(int index) {
         // should implement an exception here since I cant simply "return;" since its non-void
-        if (index > size || head == nullptr) {
+        if (index > len || head == nullptr) {
             cout << "Index " << index << " out of bounds" << endl;
         }
         
@@ -149,8 +160,56 @@ public:
 
         delete current;
 
+        len--;
         return val;
     }
+
+    
+    int size() const {
+        return len;
+    }
+
+    void updateMemorylen(int index, int addMemory) {
+        Node* current = head;
+        if (index >= len) {
+            cout << "Index " << index << " out of bounds" << endl;
+            return;
+        }
+        int i = 0;
+        while (1) {
+            if (i == index) {
+                current->value.second += addMemory;
+                break;
+            }
+            current = current->next;
+        }
+    }
+
+    void removeNode(int index) {
+        int i = 0;
+        if (len == 0) {
+            cout << "Can't remove from empty list" << endl;
+            return;
+        }
+            
+        if (index == 0) {
+            removeFront();
+            return;
+        }
+
+        Node* current = head;
+        while (i < index - 1) {
+            current = current->next;
+            i++;
+        }
+
+        Node* tmp = current->next->next;
+        delete current->next;
+        current->next = tmp;
+        len--;
+
+    }
+
 
 
 };
@@ -169,6 +228,8 @@ void printElement(range element) {
 
 
 
+
+
 int main() {
 
 
@@ -180,12 +241,12 @@ int main() {
 
     List<range> list;
 
-    for (int i = 0; i < 25; i++) {
-        int num = 0 + (rand() % (10000 - 0 + 1));
-        range r (num, num);
-        list.insertSort(r, f);
-    }
+    range a1 (0, 10);
+    range a2 (11, 5);
+    range a3 (23, 10);
+    range a4 (34, 3);
 
+    
     return 0;
 
 }
