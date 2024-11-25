@@ -2,24 +2,33 @@
 #include <string>
 #include <vector>
 #include <time.h>
-#include "header.h"
 
 using namespace std;
 
-int verifyRequest(List<range> &list, int memSize);
-void mergeFreeList(List<range> &list);
-void freeToAlloc(int index, int memSize, int expiry);
-bool compare(range a, range b);
-bool compare(alloc a, alloc b);
-void logRequest(int expiry, int index, int size);
+using range = pair<int, int>;
+using alloc = pair<int, range>;
+
+// #define DEBUG
+
+vector<range> freeList;
+vector<alloc> allocList;
+
+
+void printElement(range r);
+void printElement(alloc a);
+void insertFreeList(range element);
+void insertAllocList(alloc element);
+void mergeFreeList();
+int verifyRequest(int memSize);
+void transferAllocToFree(alloc a);
+void transferFreeToAlloc(alloc a);
 void debug();
+void logRequest(int expiry, int index, int size);
 
 
-List<range> freeList;
-List<alloc> allocList;
 
-comp_f<alloc> fa = compare;
-comp_f<range> ff = compare;
+
+int clock_tick;
 
 // global constant variables
 const int MIN_LEASE = 40;
@@ -32,9 +41,33 @@ const int MEMORY_SIZE = 1000;
 
 // global mutable variables
 int unsatisfied_requests = 0;
-int total_requests = 0;
+int satisfied_requests = 0;
+int total_requests;
 
+int meanMemSize = 0;
+int meanLeaseSize = 0;
 
+int largestMemSize = MIN_SIZE - 1;
+int smallestMemSize = MAX_SIZE + 1;
+int largestLeaseSize = MIN_LEASE - 1;
+int smallestLeaseSize = MAX_LEASE + 1;
+
+double satisfiedReqRate;
+
+void debug() {
+
+    cout << "------------------------" << endl;
+    cout << "Free List:" << endl;
+    for (range element : freeList) {
+        printElement(element);
+    }
+    cout << "---" <<endl;
+    cout << "Alloc List:" << endl;
+    for (alloc element : allocList) {
+        printElement(element);
+    }
+    cout << "------------------------" << endl;
+}
 
 void printElement(range r) {
     cout << "[" << r.first << "]" << ", (" << r.second << ")";
@@ -42,7 +75,7 @@ void printElement(range r) {
 }
 
 void printElement(alloc a) {
-    cout << "~" << a.first << "~ , ";
+    cout << "@" << a.first << " , ";
     cout << "[" << a.second.first << "], ";
     cout << "(" << a.second.second << ")" << endl;
 }
@@ -50,206 +83,222 @@ void printElement(alloc a) {
 
 
 /*
-    call this function when comparing two elements in freeList
-    returns true if range a < b
-    - compares starting index
-    - returns true if starting index of a is less than starting index of b
+    Iterates through freeList from END to START, comparing the indices of each element in the list.
+    Inserts indexes so that lowest index is toward beggining of vector, and greatest is in back of vector
+    After each element is inserted, merge changes are also made if neccessary.
 */
-bool compare(range a, range b) {
-    if (a.first < b.first)
-        return true;
-    return false;
+void insertFreeList(range element) {
+    freeList.push_back(element);
+    for (int i = freeList.size() - 1; i > 0; i--) {
+        if (i == 0) break;
+        if (freeList[i].first < freeList[i-1].first) {
+            range tmp = freeList[i-1];
+            freeList[i-1] = freeList[i];
+            freeList[i] = tmp;
+        }
+    }
+    mergeFreeList();
 }
 
 /*
-    call this function when comparing two elements in allocList
-    returns true if lease expiry in 'a' is less than lease expiry in b
+    Iterates through allocList from END to START, comparing the lease expiries of each element in the list.
+    Inserts elements so that nearest expiry is toward end of vector for easy pops, and greatest is in beggining of vector.
+    Merge changes not neccessary for allocList.
 */
-bool compare(alloc a, alloc b) {
-    if (a.first < b.first) 
-        return true;
-    return false;
-}
-
-
-// check if any memory sizes in freeList are immediately large enough
-// to satisfy requests
-// return index of freeList block where there was a suitable space
-// merge if unsatisfied. If after merge, still unsatisfied, return (-1)
-int verifyRequest(List<range> &free, int memSize) {
-
-    for (int i = 0; i < free.size(); i++) {
-        if (free.viewAt(i).second >= memSize)  
-            return free.viewAt(i).first;
+void insertAllocList(alloc element) {
+    allocList.push_back(element);
+    for (int i = allocList.size() - 1; i > 0; i--) {
+        if (i == 0) break;
+        if (allocList[i].first > allocList[i-1].first) {
+            alloc tmp = allocList[i-1];
+            allocList[i-1] = allocList[i];
+            allocList[i] = tmp;
+        }
     }
-
-    // call merge of freeList
-    mergeFreeList(free);
-
-    for (int i = 0; i < free.size(); i++) {
-        if (free.viewAt(i).second >= memSize)  
-            return free.viewAt(i).first;
-    }
-
-    return -1;
-    
-}
-
+}   
 
 /*
-    performed reduction that takes in additive function until reqSize is met
+    Any fragmented memory chunks are joined together to create larger blocks.
 */
-void mergeFreeList(List<range> &list) {
+void mergeFreeList() {
+    int i = 0;
+    while (i < freeList.size()) {
+        // delete any blocks that have memSize of zero.
+        // continue to prevent incrementing i.
+        if (freeList[i].second == 0) {
+            freeList.erase(freeList.begin() + i);
+            continue;
+        }
 
-    if (list.size() == 0 || list.size() == 1)
-        return;
-    
-    for (int i = 0; i < list.size(); i++) {
-        if (i + 1 < list.size()) {
-            if (list.viewAt(i).first + list.viewAt(i).second == list.viewAt(i+1).first + 1) {
-                
-                int size = list.viewAt(i+1).second;
-                list.addMemory(list.viewAt(i).first, size);
-                
-                // remove ith node in list
-                list.removeNode(i+1);
-            }
+        // if the next chunk is contiguous then merge the two blocks together
+        if (i + 1 < freeList.size() && freeList[i].first + freeList[i].second == freeList[i + 1].first) {
+            freeList[i].second += freeList[i + 1].second;
+            freeList.erase(freeList.begin() + i + 1);
+        } else {
+            // increment i if no changes are made.
+            ++i;
         }
     }
 }
 
-/*
-    Adds memory to allocList and removes same memory from freeList.
-    'fa' in inserSort function call is the pointer to the function compare
-    that compares alloc types.
-*/
-void freeToAlloc(int index, int memSize, int expiry) {
-    range r (index, memSize);
-    alloc a (expiry, r);
-    allocList.insertSort(a, fa);
 
-    freeList.changeRange(index, memSize);
+/*
+    Iterate through entire freeList. If at any point a free block exists that meets the size requirment,
+    return the index of the memory block.
+    If after the whole freeList has been iterated over and no return has been made, return -1 to 
+    signify an unsatisfied request.
+*/
+int verifyRequest(int memSize) {
+    for (range element : freeList) {
+        if (element.second >= memSize)
+            return element.first;
+    }
+    return -1;
+}
+
+void transferAllocToFree(alloc a) {
+    int index = a.second.first;
+    int size = a.second.second;
+    range r (index, size);
+    insertFreeList(r);
+    allocList.pop_back();
+}
+
+void transferFreeToAlloc(alloc a) {
+    int index = a.second.first;
+    int size = a.second.second;
+    for (int i = 0; i < freeList.size(); i++) {
+        if (freeList[i].first == index) {
+            if (freeList[i].first == 0)
+                freeList[i].first += size;
+            else
+                freeList[i].first += size;
+            freeList[i].second -= size;
+        }
+    }
+    mergeFreeList();
+    insertAllocList(a);
 }
 
 void logRequest(int expiry, int index, int size) { 
-    cout << "Entry :  ";
+    cout << endl << "Entry :  ";
     cout << "@" << expiry << " | ";
     cout << "[" << index << "], (";
     cout << size << ")";
     cout << "   VERIFIED: ";
-    (index>=0) ? cout << "Y" : cout << "N";
+    (index >= 0) ? cout << "Y" : cout << "N";
     cout << endl;
 }
-
-
-void debug() {
-    cout << endl;
-    cout << endl << "Free List" << endl;
-    freeList.printList();
-    cout << endl << "Alloc List" << endl;
-    allocList.printList();
-    cout << "-----------" << endl;
-}
-
 
 
 int main() {
 
-    
     srand(time(NULL));
 
-    
+    clock_tick = 0;
+
+    // initialize freeList with a size of MEMORY_SIZE
     range r (0, 1000);
-    freeList.insertSort(r, ff);
+    freeList.push_back(r);
 
-    int clock_tick = 0;
 
-    while (clock_tick != TIME_LIMIT) {
-        
-        /*
-            Check if lease expiries are due in allocList.
-            If so, remove from alloc list and insert back into freeList.
-        */
-        // views first pair element in first allocList entry
-        int index = 0;
+    while (clock_tick <= TIME_LIMIT) {
 
-        int leaseExpiry;
+        #ifdef DEBUG
+        cout << "CLOCK: " << clock_tick << endl;
+        #endif
 
-        if (allocList.size() != 0) {
-
-            leaseExpiry = allocList.viewAt(index).first;
-
-            while (leaseExpiry == clock_tick) {
-
-                // check lease expiry of next element in list if there is one
-                leaseExpiry = allocList.viewAt(index).first;
-
-                // val is equal to the range in the alloc type value
-                range val = allocList.viewAt(index).second;
-                // inserts deallocated memory into freeList
-                freeList.insertSort(val, ff);
-                // deallocate memory values from allocList
-                allocList.removeFront();
-
-                // increment index to check for more lease expiries
-                index++;
-
-                // check that the list is not empty. If it is, break;
-                if (allocList.size() == 0)
-                    break;
-                
-                
-
+        // check and remove lease expiries
+        if (allocList.size() != 0) {  
+            int end = allocList.size() - 1;
+            while (allocList[end].first == clock_tick) {
+                #ifdef DEBUG
+                cout << "EXPIRY: " << endl;
+                printElement(allocList[end]);
+                cout << endl;
+                #endif
+                transferAllocToFree(allocList[end]);
+                #ifdef DEBUG
+                debug();
+                #endif
+                end--;
             }
         }
-            
 
-        
-
-
+        // make memory request every 10 ticks in clock cycle
         // check if any MemoryRequests need to be made:
         if (clock_tick % 10 == 0) {
             // make memory request using random lease time and memory size
-            int expiryTime = (rand() % (MAX_LEASE - MIN_LEASE) + MIN_LEASE) + clock_tick;
-            int memSize    = (rand() % (MAX_SIZE - MIN_SIZE) + MIN_SIZE);
+            int expiryTime = (rand() % ((MAX_LEASE+1) - MIN_LEASE) + MIN_LEASE) + clock_tick;
+            int memSize    = (rand() % ((MAX_SIZE+1) - MIN_SIZE) + MIN_SIZE);
 
-            // verify request in freeList. If not satisfied, merge holes into 
-            // size needed
-            // if verified >= 0, satisfied request, else if -1 unsatisfied
-            int verified = verifyRequest(freeList, memSize);
-            logRequest(expiryTime, verified, memSize);
+            /*
+                Verify if request can be satisfied in the freeList.
+                'verified' boolean value will hold value of index of free memory,
+                or -1 if a request cannot be made.
+            */ 
+            int verified = verifyRequest(memSize);
+
+            if (memSize < smallestMemSize)
+                smallestMemSize = memSize;
+            if (memSize > largestMemSize)
+                largestMemSize = memSize;
+            if ((expiryTime - clock_tick) < smallestLeaseSize)
+                smallestLeaseSize = (expiryTime - clock_tick);
+            if ((expiryTime - clock_tick) > largestLeaseSize)
+                largestLeaseSize = (expiryTime - clock_tick);
+
+            meanMemSize += memSize;
+            meanLeaseSize += expiryTime - clock_tick;
+
             if (verified >= 0) {
-                freeToAlloc(verified, memSize, expiryTime);
-                total_requests++;
+                range r (verified, memSize);
+                alloc a (expiryTime, r);
+                transferFreeToAlloc(a);
+
+                satisfied_requests++;
+
+                #ifdef DEBUG
+                logRequest(expiryTime, verified, memSize);
                 debug();
-            }
-            else {
+                #endif
+            } else {
+                #ifdef DEBUG
+                logRequest(expiryTime, verified, memSize);
+                #endif
                 unsatisfied_requests++;
-                debug();
             }
 
         }
 
         clock_tick++;
-
+        
     }
 
+    total_requests = satisfied_requests + unsatisfied_requests;
+    meanMemSize = meanMemSize / total_requests;
+    meanLeaseSize = meanLeaseSize / total_requests;
+    satisfiedReqRate = ((double)satisfied_requests / (double)total_requests) * 100.0;
+
+    cout << endl << "**********";
+    cout << endl << "STATISTICS" << endl;
+    cout <<         "**********" << endl;
+    cout << "Satisfied Requests   : " << satisfied_requests << endl;
+    cout << "Unsatisfied Requests : " << unsatisfied_requests << endl;
+    cout << "TOTAL Requests       : " << total_requests << endl << endl;
+    cout << "Request Fulfillment Rate : " << satisfiedReqRate << "%" << endl;
     cout << endl;
-    cout << "Free List:" << endl;
-    freeList.printList();
+    cout << "Largest Memory Size Requested  : " << largestMemSize << endl;
+    cout << "Smallest Memory Size Requested : " << smallestMemSize << endl;
+    cout << "MEAN Memory Size Requested     : " << meanMemSize << endl;
+    cout << endl;
+    cout << "Largest Lease Size Requested  : " << largestLeaseSize << endl;
+    cout << "Smallest Lease Size Requested : " << smallestLeaseSize << endl;
+    cout << "MEAN Lease Size Requested     : " << meanLeaseSize << endl;
     cout << endl;
 
-    cout << "Alloc List:" << endl;
-    allocList.printList();
-    cout << endl;
-
-    cout << "UNSATISFIED REQUESTS : " << unsatisfied_requests << endl;
-    cout << "TOTAL REQUESTS       : " << total_requests << endl;
-
+    debug();
 
     return 0;
 
-
-
 }
-
