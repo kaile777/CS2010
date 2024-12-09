@@ -38,6 +38,7 @@ void letterFreqHisto(DICTIONARY &d);
 void wordFreqHisto(DICTIONARY &d);
 void wordFreqTable(DICTIONARY &d);
 string getLongWord(DICTIONARY d);
+void innitCharFreqMap(DICTIONARY &d);
 
 
 
@@ -176,6 +177,17 @@ void wordFreqHisto(DICTIONARY &d) {
 
 }
 
+void innitCharFreqMap(DICTIONARY &d) {
+    char ch;
+    for (int i = 65; i <= 90; i++) {
+        ch = i;
+        d.charFreq.insert({ch, 0});
+    }
+    for (int i = 97; i <= 122; i++) {
+        ch = i;
+        d.charFreq.insert({ch, 0});
+    }
+}
 
 void letterFreqHisto(DICTIONARY &d) {
 
@@ -202,17 +214,12 @@ void letterFreqHisto(DICTIONARY &d) {
 
 }
 
-
-
-
 void printStats(DICTIONARY &dic) {
     cout << endl;
     cout << "# Letters   : " << get<0>(dic.stats) << endl;
     cout << "# Words     : " << get<1>(dic.stats) << endl;
     cout << "# Lines     : " << get<2>(dic.stats) << endl;
 }
-
-
 
 WORD getNextWord(DICTIONARY &dic, ifstream &file) {
     WORD w;  
@@ -304,13 +311,14 @@ int main(int argc, char* argv[]) {
 
     DICTIONARY dic;
 
+    innitCharFreqMap(dic);
 
     if (!file.is_open()) {
         cerr << "Unable to open file." << endl;
         return 1;
     } else
         cout << "File opened." << endl;
-
+    
     get<2>(dic.stats) += 1;
     cout << endl;
 
